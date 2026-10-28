@@ -28,16 +28,19 @@ public class SearchService {
     private final RestClient restClient;
     private final CacheRepository cacheRepository;
     private final ObjectMapper objectMapper;
+    private final CommentsService commentsService;
 
     public SearchService(RestClient.Builder builder,
                          CacheRepository cacheRepository,
-                         ObjectMapper objectMapper) {
+                         ObjectMapper objectMapper,
+                         CommentsService commentsService) {
         this.restClient = builder
                 .baseUrl(API_URL)
                 .build();
 
         this.cacheRepository = cacheRepository;
         this.objectMapper = objectMapper;
+        this.commentsService = commentsService;
     }
 
     public List<SearchResponse> searchShows(String query) {
@@ -69,7 +72,10 @@ public class SearchService {
                         show.summary(),
                         show.genres() == null
                                 ? List.of()
-                                : show.genres()
+                                : show.genres(),
+                        commentsService.getComments(
+                                Math.toIntExact(show.id())
+                        )
                 ))
                 .toList();
     }

@@ -12,8 +12,8 @@ import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
-import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -103,13 +103,28 @@ public class SearchService {
             );
         }
 
-        return cacheRepository.findById(id)
+        JsonNode showNode = cacheRepository.findById(id)
                 .map(showCache -> (JsonNode)
-                        objectMapper.valueToTree(
-                                showCache.getShowDato()
-                        )
+                           objectMapper.valueToTree(
+                                   showCache.getShowDato()
+                           )
                 )
-                .orElseGet(() -> fetchAndCacheShow(id));
+                .orElseGet(() ->fetchAndCacheShow(id));
+
+        ObjectNode result =(ObjectNode) showNode.deepCopy();
+
+        result = result.isObject()
+                ? result
+                : objectMapper.createObjectNode();
+
+        result.set(
+                "comments",
+                objectMapper.valueToTree(
+                        commentsService.getComments(Math.toIntExact(id))
+                )
+        );
+
+        return result;
 
     }
 

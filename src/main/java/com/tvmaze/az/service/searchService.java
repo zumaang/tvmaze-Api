@@ -2,9 +2,12 @@ package com.tvmaze.az.service;
 
 import com.tvmaze.az.dto.searchResponse;
 import com.tvmaze.az.dto.searchResult;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
+import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.databind.JsonNode;
 
 import java.util.Arrays;
 import java.util.List;
@@ -25,7 +28,7 @@ public class searchService {
     }
 
     public List<searchResponse> searchShows(String query) {
-        if (query == null || query.isBlank()){
+        if (query == null || query.isBlank()) {
             throw new IllegalArgumentException(
                     "El nombre del show es obligatorio"
             );
@@ -39,7 +42,7 @@ public class searchService {
                 .retrieve()
                 .body(searchResult[].class);
 
-        if (results == null){
+        if (results == null) {
             return List.of();
         }
 
@@ -60,15 +63,45 @@ public class searchService {
 
     private String resultChannel(
             searchResult.ShowResult show
-    ){
-        if (show.network() != null && show.network().name() != null){
+    ) {
+        if (show.network() != null && show.network().name() != null) {
             return show.network().name();
         }
 
-        if (show.webChannel() != null){
+        if (show.webChannel() != null) {
             return show.webChannel().name();
         }
 
         return null;
+    }
+
+    public JsonNode getShowId(Long id) {
+        if (id == null || id <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "La estructura del Id no es el correcto"
+            );
+        }
+
+        try {
+            JsonNode show = restClient.get()
+                    .uri("/shows/{id}", id)
+                    .retrieve()
+                    .body(JsonNode.class);
+
+            if (show == null || show.isNull()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "Dato vacio"
+                );
+            }
+
+            return show;
+        } catch (HttpClientErrorException.NotFound ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "El Id no se encuentra disponible" + id
+            );
+        }
     }
 }

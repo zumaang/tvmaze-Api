@@ -17,7 +17,8 @@ public record searchResult(
             List<String> genres,
             Network network,
             @JsonProperty("webChannel") Network webChannel
-    ){}
+    ) {
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Network(String name) {

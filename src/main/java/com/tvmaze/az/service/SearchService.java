@@ -1,55 +1,68 @@
 package com.tvmaze.az.service;
 
-import com.tvmaze.az.dto.searchResponse;
-import com.tvmaze.az.dto.searchResult;
+import com.tvmaze.az.dbdata.CacheRepository;
+import com.tvmaze.az.dbdata.ShowCache;
+import com.tvmaze.az.dto.SearchResponse;
+import com.tvmaze.az.dto.SearchResult;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
+import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Service
-public class searchService {
+public class SearchService {
 
     private static final String API_URL =
             "https://api.tvmaze.com";
 
-    public final RestClient restClient;
+    private final RestClient restClient;
+    private final CacheRepository cacheRepository;
+    private final ObjectMapper objectMapper;
 
-    public searchService(RestClient.Builder builder) {
+    public SearchService(RestClient.Builder builder,
+                         CacheRepository cacheRepository,
+                         ObjectMapper objectMapper) {
         this.restClient = builder
                 .baseUrl(API_URL)
                 .build();
+
+        this.cacheRepository = cacheRepository;
+        this.objectMapper = objectMapper;
     }
 
-    public List<searchResponse> searchShows(String query) {
+    public List<SearchResponse> searchShows(String query) {
         if (query == null || query.isBlank()) {
             throw new IllegalArgumentException(
                     "El nombre del show es obligatorio"
             );
         }
 
-        searchResult[] results = restClient.get()
+        SearchResult[] results = restClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/search/shows")
                         .queryParam("q", query.trim())
                         .build())
                 .retrieve()
-                .body(searchResult[].class);
+                .body(SearchResult[].class);
 
         if (results == null) {
             return List.of();
         }
 
         return Arrays.stream(results)
-                .map(searchResult::show)
+                .map(SearchResult::show)
                 .filter(Objects::nonNull)
-                .map(show -> new searchResponse(
+                .map(show -> new SearchResponse(
                         show.id(),
                         show.name(),
                         resultChannel(show),
@@ -62,7 +75,7 @@ public class searchService {
     }
 
     private String resultChannel(
-            searchResult.ShowResult show
+            SearchResult.ShowResult show
     ) {
         if (show.network() != null && show.network().name() != null) {
             return show.network().name();
@@ -76,12 +89,25 @@ public class searchService {
     }
 
     public JsonNode getShowId(Long id) {
+
         if (id == null || id <= 0) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "La estructura del Id no es el correcto"
             );
         }
+
+        return cacheRepository.findById(id)
+                .map(showCache -> (JsonNode)
+                        objectMapper.valueToTree(
+                                showCache.getShowDato()
+                        )
+                )
+                .orElseGet(() -> fetchAndCacheShow(id));
+
+    }
+
+    private JsonNode fetchAndCacheShow(Long id) {
 
         try {
             JsonNode show = restClient.get()
@@ -96,7 +122,17 @@ public class searchService {
                 );
             }
 
+            Map<String, Object> showDato = objectMapper.convertValue(
+                    show,
+                    new TypeReference<Map<String, Object>>() {
+                    }
+            );
+
+            ShowCache showCache = new ShowCache(id, showDato);
+            cacheRepository.save(showCache);
+
             return show;
+
         } catch (HttpClientErrorException.NotFound ex) {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,

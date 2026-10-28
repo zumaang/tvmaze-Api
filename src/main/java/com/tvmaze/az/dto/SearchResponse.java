@@ -2,7 +2,7 @@ package com.tvmaze.az.dto;
 
 import java.util.List;
 
-public record searchResponse(
+public record SearchResponse(
         Long id,
         String name,
         String channel,

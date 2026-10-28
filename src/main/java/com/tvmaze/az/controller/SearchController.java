@@ -1,7 +1,7 @@
 package com.tvmaze.az.controller;
 
-import com.tvmaze.az.dto.searchResponse;
-import com.tvmaze.az.service.searchService;
+import com.tvmaze.az.dto.SearchResponse;
+import com.tvmaze.az.service.SearchService;
 import org.springframework.web.bind.annotation.*;
 import tools.jackson.databind.JsonNode;
 
@@ -9,16 +9,16 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/shows")
-public class searchController {
+public class SearchController {
 
-    private final searchService searchService;
+    private final SearchService searchService;
 
-    public searchController(searchService searchService) {
+    public SearchController(SearchService searchService) {
         this.searchService = searchService;
     }
 
     @GetMapping("/search")
-    public List<searchResponse> searchShows(
+    public List<SearchResponse> searchShows(
             @RequestParam("query") String query
     ) {
         return searchService.searchShows(query);
